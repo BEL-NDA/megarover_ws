@@ -53,25 +53,54 @@ colcon build
 # ターミナル1: micro-ROS エージェント
 ~/megarover_ws/arduino/start_megarover_agent.sh
 
-# ターミナル2: Megarover (ZED2i あり)
-source /opt/ros/humble/setup.bash
+# ターミナル2: Megarover + EKF + RViz
 source ~/megarover_ws/install/setup.bash
 ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed
 
-# ターミナル3: ZED2i カメラ
-source ~/megarover_ws/zed_ws/install/setup.bash
-ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed2i \
-  publish_urdf:=false publish_tf:=false
+# ターミナル3: ZED2i カメラ（深度モード選択可）
+source ~/megarover_ws/install/setup.bash
+ros2 launch megarover3_bringup zed.launch.py
+# 軽量版: ros2 launch megarover3_bringup zed.launch.py depth_mode:=NEURAL_LIGHT
+# 最高精度: ros2 launch megarover3_bringup zed.launch.py depth_mode:=NEURAL_PLUS
 
 # キーボード操縦
 ros2 run teleop_twist_keyboard teleop_twist_keyboard \
   --ros-args -r /cmd_vel:=/rover_twist
 ```
 
+## トラブルシューティング
+
+### ノードが重複して odom が振動する
+
+launch を Ctrl+C で終了した後もノードが残存することがあります。
+以下のコマンドで強制終了してから再起動してください。
+
+```bash
+pkill -9 -f "ekf_node|pub_odom|rviz2|robot_state_publisher|joint_state_publisher|robot.launch"
+```
+
+確認：
+
+```bash
+ros2 node list | grep -E "ekf|pub_odom|rviz|robot_state|joint_state"
+# 何も表示されなければ OK
+```
+
+### ZED 起動時に `getcwd() failed` が出る
+
+削除済みの古いディレクトリ（`~/zed_ws` 等）をカレントにしているターミナルで発生します。
+`cd ~` してから再実行してください。
+
+### micro-ROS Agent が `Package not found` になる
+
+ターミナルで `source ~/megarover_ws/install/local_setup.bash` が実行されていません。
+`start_megarover_agent.sh` を使えば自動で source されます。
+
 ## 環境
 
 - OS: Ubuntu 22.04
 - ROS2: Humble
-- GPU: NVIDIA (CUDA 対応)
+- GPU: NVIDIA RTX 4060 (CUDA 対応)
 - カメラ: ZED2i (USB)
 - ロボット MCU: ESP32 (VS-C3) / micro-ROS
+- 深度モード: NEURAL（デフォルト）/ NEURAL_LIGHT / NEURAL_PLUS
