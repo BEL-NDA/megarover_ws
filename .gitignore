@@ -1,0 +1,12 @@
+build/
+install/
+log/
+src/
+uros_ws/build/
+uros_ws/install/
+uros_ws/log/
+uros_ws/src/
+zed_ws/build/
+zed_ws/install/
+zed_ws/log/
+zed_ws/src/

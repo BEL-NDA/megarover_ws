@@ -1,0 +1,21 @@
+repositories:
+  arduino:
+    type: git
+    url: https://github.com/BEL-NDA/megarover3_ros2_esp.git
+    version: main
+  src/megarover3_ros2:
+    type: git
+    url: https://github.com/BEL-NDA/megarover3_ros2.git
+    version: master
+  src/vs_rover_options_description:
+    type: git
+    url: https://github.com/vstoneofficial/vs_rover_options_description.git
+    version: main
+  uros_ws/src/micro_ros_setup:
+    type: git
+    url: https://github.com/micro-ROS/micro_ros_setup.git
+    version: humble
+  zed_ws/src/zed-ros2-wrapper:
+    type: git
+    url: https://github.com/stereolabs/zed-ros2-wrapper.git
+    version: humble
