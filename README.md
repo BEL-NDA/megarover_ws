@@ -50,23 +50,30 @@ colcon build
 
 ## 起動手順
 
+> **順番が重要です。** ZED を先に起動しないと RViz のカメラ映像が表示されません。
+
 ```bash
 # ターミナル1: micro-ROS エージェント
 ~/megarover_ws/arduino/start_megarover_agent.sh
 
-# ターミナル2: Megarover + EKF + RViz
+# ターミナル2: ZED2i カメラ（先に起動する）
 source ~/megarover_ws/install/setup.bash
-ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed
+ros2 launch megarover3_bringup zed.launch.py od:=true
+# 軽量版: ros2 launch megarover3_bringup zed.launch.py od:=true depth_mode:=NEURAL_LIGHT
 
-# ターミナル3: ZED2i カメラ（深度モード選択可）
+# ターミナル3: Megarover + EKF + RViz（ZED 起動後に実行）
 source ~/megarover_ws/install/setup.bash
-ros2 launch megarover3_bringup zed.launch.py
-# 軽量版: ros2 launch megarover3_bringup zed.launch.py depth_mode:=NEURAL_LIGHT
-# 最高精度: ros2 launch megarover3_bringup zed.launch.py depth_mode:=NEURAL_PLUS
+ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed od:=true
 
-# キーボード操縦
+# キーボード操縦（任意）
 ros2 run teleop_twist_keyboard teleop_twist_keyboard \
   --ros-args -r /cmd_vel:=/rover_twist
+```
+
+### 全ノード停止
+
+```bash
+~/megarover_ws/stop.sh
 ```
 
 ## 物体検出（Object Detection）
