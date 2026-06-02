@@ -69,6 +69,73 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
   --ros-args -r /cmd_vel:=/rover_twist
 ```
 
+## 物体検出（Object Detection）
+
+ZED SDK の AI 物体検出を有効にすると、カメラ映像から人・車・バッグなどを 3D 位置付きでリアルタイム検出できます。
+
+### 起動方法
+
+```bash
+source ~/megarover_ws/install/setup.bash
+ros2 launch megarover3_bringup zed.launch.py od:=true
+```
+
+他の引数と組み合わせ可能です：
+
+```bash
+# 物体検出 + 軽量深度モード
+ros2 launch megarover3_bringup zed.launch.py od:=true depth_mode:=NEURAL_LIGHT
+
+# 物体検出 + SLAM マッピング
+ros2 launch megarover3_bringup zed.launch.py od:=true slam_mode:=mapping area_file:=$HOME/megarover_ws/maps/lab.area
+```
+
+> **初回起動時の注意**: GPU 向けに AI モデルを最適化するため数分かかります。`/usr/local/zed/resources/` にキャッシュされ、2 回目以降は即座に起動します。
+
+### 検出結果のトピック
+
+| トピック | 型 | 内容 |
+|---|---|---|
+| `/zed/zed_node/obj_det/objects` | `zed_msgs/ObjectsStamped` | 検出オブジェクト一覧（3D位置・クラス・追跡ID） |
+
+```bash
+# 検出結果を確認
+ros2 topic echo /zed/zed_node/obj_det/objects
+```
+
+### 検出クラスと設定
+
+`config/zed_megarover.yaml` の `object_detection.class` で各クラスの有効/無効と信頼度しきい値を調整できます。デフォルトでは **people**（人）と **vehicle**（車）のみ有効です。
+
+| クラス | デフォルト | 信頼度しきい値 |
+|---|---|---|
+| people（人） | 有効 | 65% |
+| vehicle（車両） | 有効 | 60% |
+| bag（バッグ） | 無効 | 40% |
+| animal（動物） | 無効 | 40% |
+| electronics（電子機器） | 無効 | 45% |
+
+### 検出モデルの変更
+
+`zed_megarover.yaml` の `detection_model` で速度と精度をトレードオフできます：
+
+| モデル | 速度 | 精度 |
+|---|---|---|
+| `MULTI_CLASS_BOX_FAST` | 速い（デフォルト） | 標準 |
+| `MULTI_CLASS_BOX_MEDIUM` | 中程度 | 高め |
+| `MULTI_CLASS_BOX_ACCURATE` | 遅い | 最高 |
+
+### 動的な有効化（起動中に切り替え）
+
+ZED ノード起動中にサービスで切り替えることもできます：
+
+```bash
+# 有効化
+ros2 service call /zed/zed_node/enable_obj_det std_srvs/srv/SetBool "{data: true}"
+# 無効化
+ros2 service call /zed/zed_node/enable_obj_det std_srvs/srv/SetBool "{data: false}"
+```
+
 ## SLAM（エリアメモリー）
 
 ZED SDK の Visual SLAM 機能（Area Memory）を使うと、環境の地図（`.area` ファイル）を保存・再利用して、ループクロージャと再ローカリゼーションを行えます。
