@@ -8,6 +8,7 @@ Megarover Ver.3.0 ROS2 ワークスペース（ZED2i + micro-ROS 対応）
 megarover_ws/
 ├── megarover.repos          # 全リポジトリの参照定義
 ├── arduino/                 # Arduino スケッチ (micro-ROS, vcs import で展開)
+├── maps/                    # ZED エリアメモリファイル (.area)
 ├── src/                     # ROS2 パッケージ (vcs import で展開)
 │   ├── megarover3_ros2/
 │   └── vs_rover_options_description/
@@ -68,7 +69,118 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
   --ros-args -r /cmd_vel:=/rover_twist
 ```
 
+## SLAM（エリアメモリー）
+
+ZED SDK の Visual SLAM 機能（Area Memory）を使うと、環境の地図（`.area` ファイル）を保存・再利用して、ループクロージャと再ローカリゼーションを行えます。
+
+地図ファイルは `~/megarover_ws/maps/` に保存します。
+
+### slam_mode の種類
+
+| slam_mode | 動作 |
+|---|---|
+| `off`（デフォルト）| Area Memory 無効。起動のたびに odometry がリセット |
+| `mapping` | 地図を構築しながら走行。Ctrl+C 終了時に `.area` ファイルを保存 |
+| `localization` | 保存済みの `.area` ファイルを読み込み、再ローカリゼーションのみ（地図更新なし） |
+
+### Step 1: マッピング（初回・地図を作る）
+
+新しい環境を走行して地図を保存します。
+
+```bash
+# ターミナル3: ZED を mapping モードで起動
+source ~/megarover_ws/install/setup.bash
+ros2 launch megarover3_bringup zed.launch.py \
+  slam_mode:=mapping \
+  area_file:=$HOME/megarover_ws/maps/lab.area
+```
+
+**走行のコツ（公式推奨）：**
+- 視覚的な特徴が豊富な場所（テクスチャのある壁や家具）から開始する
+- カメラを下に向けない
+- 20 m 以内のループ状のルートを走行するのが理想的
+- 大きな空間は複数のセクションに分割する
+
+走行が終わったら **Ctrl+C** で ZED ノードを終了すると、自動的に `maps/lab.area` が保存されます。
+
+#### 走行中に手動で保存する場合
+
+Ctrl+C を待たずにサービスコールで保存できます：
+
+```bash
+# 引数なし → area_file_path パラメータで指定したパスに保存
+ros2 service call /zed/zed_node/save_area_memory zed_msgs/srv/SaveAreaMemory "{area_file_path: ''}"
+
+# パスを直接指定する場合
+ros2 service call /zed/zed_node/save_area_memory zed_msgs/srv/SaveAreaMemory \
+  "{area_file_path: '/home/tsujita/megarover_ws/maps/lab.area'}"
+```
+
+エクスポートの進捗確認（`NONE` → `RUNNING` → `SUCCESS`）：
+
+```bash
+ros2 topic echo /zed/zed_node/pos_tracking/status | grep area_memory_state
+```
+
+### Step 2: ローカリゼーション（2 回目以降・地図を使う）
+
+保存した `.area` ファイルを読み込み、既知の環境内で安定したポジション追跡を行います。
+
+```bash
+# ターミナル3: ZED を localization モードで起動
+source ~/megarover_ws/install/setup.bash
+ros2 launch megarover3_bringup zed.launch.py \
+  slam_mode:=localization \
+  area_file:=$HOME/megarover_ws/maps/lab.area
+```
+
+起動後、カメラがマッピング時の環境を認識するまで数秒かかります。
+ログに `Relocalizing...` → `OK` と表示されれば再ローカリゼーション完了です。
+
+### Step 3: 地図を拡張する
+
+既存の地図を読み込みながら新しいエリアを追加したい場合は mapping モードで同じファイルを指定します：
+
+```bash
+ros2 launch megarover3_bringup zed.launch.py \
+  slam_mode:=mapping \
+  area_file:=$HOME/megarover_ws/maps/lab.area
+```
+
+終了時に同じファイルが更新されます（上書き）。別名で保存したい場合は別のパスを指定してください。
+
+### 地図ファイルの管理
+
+```
+~/megarover_ws/maps/
+├── lab.area        # 研究室
+├── corridor.area   # 廊下
+└── ...
+```
+
+`.area` ファイルはコンパクトなバイナリ形式です。環境が変わった（大きなレイアウト変更など）場合は mapping モードで地図を作り直します。
+
 ## トラブルシューティング
+
+### SLAM: 起動時に `Relocalizing...` のまま固まる
+
+`.area` ファイルに対応しない環境（照明変化・大幅なレイアウト変更など）で発生します。
+mapping モードで地図を作り直してください。
+
+### SLAM: `slam_mode:=localization requires area_file to be set` エラー
+
+`localization` モードでは `area_file` の指定が必須です：
+
+```bash
+ros2 launch megarover3_bringup zed.launch.py \
+  slam_mode:=localization \
+  area_file:=$HOME/megarover_ws/maps/lab.area
+```
+
+### SLAM: Ctrl+C 後に `.area` ファイルが生成されない
+
+ZED ノードが正常終了する前に強制終了（SIGKILL 等）すると保存されません。
+必ず Ctrl+C（SIGTERM）で終了するか、`save_area_memory` サービスを使って先に手動保存してください。
 
 ### ノードが重複して odom が振動する
 
