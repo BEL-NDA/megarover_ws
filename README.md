@@ -87,12 +87,26 @@ ros2 launch megarover3_bringup zed.launch.py od:=true
 
 # ターミナル3: Megarover + EKF + RViz（ZED 起動後に実行）
 source ~/megarover_ws/install/setup.bash
-ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed od:=true
+ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed
 
 # キーボード操縦（任意）
 ros2 run teleop_twist_keyboard teleop_twist_keyboard \
   --ros-args -r /cmd_vel:=/rover_twist
 ```
+
+`rover:=mega_zed` では、車輪由来のraw odomは `/wheel/odom`、EKF統合後のodomは `/odom` です。
+`/odom` と `odom -> base_footprint` TF は `robot_localization` だけがpublishします。
+
+確認:
+
+```bash
+ros2 topic info /wheel/odom
+ros2 topic info /odom
+ros2 run tf2_ros tf2_echo odom base_footprint
+```
+
+実機テストでは、低速の短い左右旋回、短い前進、後退、約0.8mの低速直進、少し長めの左右旋回で `/wheel/odom`、`/zed/zed_node/odom`、`/odom` が大きく破綻しないことを確認しました。
+ロボットを手で持ち上げて移動すると車輪odometryとZED odomの整合が崩れるため、その場合は Megarover + EKF と ZED wrapper を再起動して現在位置を新しい初期状態にしてください。
 
 ### 全ノード停止
 
