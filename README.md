@@ -167,6 +167,9 @@ ros2 launch megarover3_bringup zed.launch.py od:=true
 | トピック | 型 | 内容 |
 |---|---|---|
 | `/zed/zed_node/obj_det/objects` | `zed_msgs/ObjectsStamped` | 検出オブジェクト一覧 |
+| `/perception/people/tracks` | `megarover_perception_msgs/PersonTrackArray` | personだけを抽出した追跡結果 |
+
+`/perception/people/tracks` は実機・シミュレーション共通の制御用topicです。各trackには `track_id`、`class_name`、`confidence`、`bbox_2d`、`position_3d`、`velocity_3d`、`bbox_3d`、`tracking_state` が入ります。ZED ROS messageにはSDK側のobject IDが出ていないため、`track_id` は3D位置の近傍対応で生成します。
 
 RViz に **ObjectDetection**（バウンディングボックス）と **EStop**（緑/赤の球）が表示されます。
 
