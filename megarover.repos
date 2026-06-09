@@ -10,7 +10,7 @@ repositories:
   src/vs_rover_options_description:
     type: git
     url: https://github.com/vstoneofficial/vs_rover_options_description.git
-    version: main
+    version: master
   uros_ws/src/micro_ros_setup:
     type: git
     url: https://github.com/micro-ROS/micro_ros_setup.git
@@ -18,4 +18,4 @@ repositories:
   zed_ws/src/zed-ros2-wrapper:
     type: git
     url: https://github.com/stereolabs/zed-ros2-wrapper.git
-    version: humble
+    version: master

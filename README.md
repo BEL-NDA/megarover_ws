@@ -1,12 +1,15 @@
-# megarover_ws
+# megarover_real
 
-Megarover Ver.3.0 ROS2 ワークスペース（ZED2i + micro-ROS 対応）
+Megarover Ver.3.0 ROS2 ワークスペース（実機側。ZED2i + micro-ROS 対応）
 
 ## 構成
 
+`megarover_common` をこのリポジトリの隣に置いて、共有設定と RViz レイアウトをそこに分離します。
+
 ```
-megarover_ws/
+megarover_real/
 ├── megarover.repos          # 全リポジトリの参照定義
+├── ../megarover_common/     # 共有設定・RViz レイアウト
 ├── arduino/                 # Arduino スケッチ (micro-ROS, vcs import で展開)
 ├── maps/                    # ZED エリアメモリファイル (.area)
 ├── src/                     # ROS2 パッケージ (vcs import で展開)
@@ -20,14 +23,16 @@ megarover_ws/
 ## セットアップ
 
 ```bash
-git clone https://github.com/BEL-NDA/megarover_ws.git ~/megarover_ws
-cd ~/megarover_ws
+git clone https://github.com/BEL-NDA/megarover_real.git ~/src/megarover/megarover_real
+git clone https://github.com/BEL-NDA/megarover_common.git ~/src/megarover/megarover_common
+cd ~/src/megarover/megarover_real
 vcs import < megarover.repos
 ```
 
 ### ROS2 ワークスペースのビルド
 
 ```bash
+cd ~/src/megarover/megarover_real
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
@@ -35,7 +40,7 @@ colcon build --symlink-install
 ### ZED ワークスペースのビルド
 
 ```bash
-cd ~/megarover_ws/zed_ws
+cd ~/src/megarover/megarover_real/zed_ws
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release
 ```
@@ -43,7 +48,7 @@ colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release
 ### micro-ROS Agent のビルド
 
 ```bash
-cd ~/megarover_ws/uros_ws
+cd ~/src/megarover/megarover_real/uros_ws
 source /opt/ros/humble/setup.bash
 ros2 run micro_ros_setup create_agent_ws.sh
 colcon build
@@ -64,6 +69,10 @@ export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI=file:///home/tsujita/cyclonedds.xml
 ```
 
+### 共有設定の参照
+
+共有の FastDDS 設定と RViz レイアウトは `~/src/megarover/megarover_common` に置きます。実機側の起動やビルドではこのディレクトリを別ターミナルで保持しておき、必要な設定や表示レイアウトをそこから参照します。
+
 ### ZED メッシュの修正（初回のみ）
 
 RViz でロボットモデルの ZED カメラ部分を表示するために必要：
@@ -78,15 +87,15 @@ sudo ln -s /opt/ros/humble/share/zed_description/meshes /opt/ros/humble/share/ze
 
 ```bash
 # ターミナル1: micro-ROS エージェント
-~/megarover_ws/arduino/start_megarover_agent.sh
+~/src/megarover/megarover_real/arduino/start_megarover_agent.sh
 
 # ターミナル2: ZED2i カメラ（先に起動する）
-source ~/megarover_ws/install/setup.bash
+source ~/src/megarover/megarover_real/install/setup.bash
 ros2 launch megarover3_bringup zed.launch.py od:=true
 # 軽量版: ros2 launch megarover3_bringup zed.launch.py od:=true depth_mode:=NEURAL_LIGHT
 
 # ターミナル3: Megarover + EKF + RViz（ZED 起動後に実行）
-source ~/megarover_ws/install/setup.bash
+source ~/src/megarover/megarover_real/install/setup.bash
 ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed
 
 # キーボード操縦（任意）
@@ -111,7 +120,7 @@ ros2 run tf2_ros tf2_echo odom base_footprint
 ### 全ノード停止
 
 ```bash
-~/megarover_ws/stop.sh
+~/src/megarover/megarover_real/stop.sh
 ```
 
 ## Xbox コントローラ
@@ -177,7 +186,7 @@ RViz に **ObjectDetection**（バウンディングボックス）と **EStop**
 
 ZED SDK の Visual SLAM 機能を使って環境の地図を保存・再利用します。
 
-地図ファイルは `~/megarover_ws/maps/` に保存します。
+地図ファイルは `~/src/megarover/megarover_real/maps/` に保存します。
 
 ### slam_mode の種類
 
@@ -192,7 +201,7 @@ ZED SDK の Visual SLAM 機能を使って環境の地図を保存・再利用�
 ```bash
 ros2 launch megarover3_bringup zed.launch.py \
   slam_mode:=mapping \
-  area_file:=$HOME/megarover_ws/maps/lab.area
+  area_file:=$HOME/src/megarover/megarover_real/maps/lab.area
 ```
 
 **走行のコツ：** テクスチャのある壁・家具のある場所から開始、20m 以内のループを走行。
@@ -208,7 +217,7 @@ ros2 service call /zed/zed_node/save_area_memory zed_msgs/srv/SaveAreaMemory "{a
 ```bash
 ros2 launch megarover3_bringup zed.launch.py \
   slam_mode:=localization \
-  area_file:=$HOME/megarover_ws/maps/lab.area
+  area_file:=$HOME/src/megarover/megarover_real/maps/lab.area
 ```
 
 ログに `Relocalizing...` → `OK` が出れば成功。RViz の **map** フレームが有効になり、**SLAM Landmarks**（黄色点群）が表示されます。
@@ -220,7 +229,7 @@ mapping モードで同じファイルを指定すると既存地図に追加さ
 ### 地図ファイルの管理
 
 ```
-~/megarover_ws/maps/
+~/src/megarover/megarover_real/maps/
 ├── lab.area        # 研究室
 ├── corridor.area   # 廊下
 └── ...
@@ -233,7 +242,7 @@ mapping モードで同じファイルを指定すると既存地図に追加さ
 ### ノードが重複する / odom が振動する
 
 ```bash
-~/megarover_ws/stop.sh
+~/src/megarover/megarover_real/stop.sh
 ```
 
 で全ノードを停止してから再起動してください。
