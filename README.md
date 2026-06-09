@@ -11,6 +11,7 @@ megarover_real/
 ├── megarover.repos          # 全リポジトリの参照定義
 ├── ../megarover_common/     # 共有設定・RViz レイアウト
 ├── arduino/                 # Arduino スケッチ (micro-ROS, vcs import で展開)
+├── configs/                 # 実機専用の EKF 設定
 ├── maps/                    # ZED エリアメモリファイル (.area)
 ├── src/                     # ROS2 パッケージ (vcs import で展開)
 │   ├── megarover3_ros2/
@@ -71,7 +72,7 @@ export CYCLONEDDS_URI=file:///home/tsujita/cyclonedds.xml
 
 ### 共有設定の参照
 
-共有の FastDDS 設定と RViz レイアウトは `~/src/megarover/megarover_common` に置きます。実機側の起動やビルドではこのディレクトリを別ターミナルで保持しておき、必要な設定や表示レイアウトをそこから参照します。
+共有の FastDDS 設定、Nav2 の上位設定、RViz レイアウトは `~/src/megarover/megarover_common` に置きます。EKF の設定はこのリポジトリの `configs/` に置きます。
 
 ### ZED メッシュの修正（初回のみ）
 
@@ -96,7 +97,8 @@ ros2 launch megarover3_bringup zed.launch.py od:=true
 
 # ターミナル3: Megarover + EKF + RViz（ZED 起動後に実行）
 source ~/src/megarover/megarover_real/install/setup.bash
-ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed
+ros2 launch megarover3_bringup robot.launch.py rover:=mega_zed \
+  params_file:=~/src/megarover/megarover_real/configs/megarover-ekf.yaml
 
 # キーボード操縦（任意）
 ros2 run teleop_twist_keyboard teleop_twist_keyboard \
@@ -105,6 +107,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 
 `rover:=mega_zed` では、車輪由来のraw odomは `/wheel/odom`、EKF統合後のodomは `/odom` です。
 `/odom` と `odom -> base_footprint` TF は `robot_localization` だけがpublishします。
+EKF のパラメータは `~/src/megarover/megarover_real/configs/megarover-ekf.yaml` を使います。
 
 確認:
 
