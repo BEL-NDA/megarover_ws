@@ -9,6 +9,7 @@ from tkinter import ttk
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+MEGAROVER_ROOT = PROJECT_ROOT.parent
 COMMON_ROOT = PROJECT_ROOT.parent / "megarover_common"
 
 
@@ -85,11 +86,12 @@ def run_in_terminal(title, command, env=None, cwd=PROJECT_ROOT):
 
 
 def real_prefix():
-    ws = workspace_var.get().strip() or str(PROJECT_ROOT)
+    ws = workspace_var.get().strip() or str(MEGAROVER_ROOT)
     return (
         f"cd {q(ws)} && "
         "source /opt/ros/humble/setup.bash && "
         "for setup in install/setup.bash install/local_setup.bash "
+        "megarover_real/install/setup.bash megarover_real/install/local_setup.bash "
         "zed_ws/install/setup.bash zed_ws/install/local_setup.bash "
         "uros_ws/install/setup.bash uros_ws/install/local_setup.bash; do "
         "[[ -f \"$setup\" ]] && source \"$setup\"; "
@@ -116,7 +118,14 @@ def zed_args():
 
 
 def start_micro_ros():
-    cmd = micro_ros_command_var.get().strip() or "./arduino/start_megarover_agent.sh"
+    cmd = micro_ros_command_var.get().strip()
+    if not cmd:
+        port = esp_port_var.get().strip() or "/dev/ttyUSB0"
+        cmd = (
+            f"kill $(lsof -t {q(port)} 2>/dev/null) 2>/dev/null || true; "
+            "sleep 1; "
+            f"ros2 run micro_ros_agent micro_ros_agent serial --dev {q(port)} --baudrate 921600 -v4"
+        )
     run_in_terminal("Real micro-ROS Agent", f"{real_prefix()} && {cmd}", common_env())
 
 
@@ -182,7 +191,7 @@ def save_area_memory():
 
 
 def stop_all():
-    cmd = stop_command_var.get().strip() or "./stop.sh"
+    cmd = stop_command_var.get().strip() or "./megarover_real/stop.sh"
     run_in_terminal("Real Stop", f"{real_prefix()} && {cmd}", common_env())
 
 
@@ -191,9 +200,19 @@ def esp_upload():
         "export PATH=\"$HOME/.local/bin:$PATH\" && "
         "arduino --upload --board esp32:esp32:esp32:UploadSpeed=921600 "
         f"--port {q(esp_port_var.get().strip() or '/dev/ttyUSB0')} "
-        f"{q(str(PROJECT_ROOT / 'arduino' / 'megarover3_ros2.ino'))}"
+        f"{q(str(MEGAROVER_ROOT / 'arduino' / 'megarover3_ros2.ino'))}"
     )
     run_in_terminal("Real ESP32 Upload", cmd, common_env())
+
+
+def build_micro_ros_agent():
+    cmd = (
+        "source /opt/ros/humble/setup.bash && "
+        "cd uros_ws && "
+        "if [[ ! -d src/micro_ros_agent ]]; then ros2 run micro_ros_setup create_agent_ws.sh; fi && "
+        "colcon build"
+    )
+    run_in_terminal("Build micro-ROS Agent", cmd, common_env())
 
 
 def open_options():
@@ -244,8 +263,8 @@ root.rowconfigure(0, weight=1)
 
 terminal_var = tk.StringVar(value=os.environ.get("TERMINAL_EMULATOR", ""))
 ros_domain_var = tk.StringVar(value=os.environ.get("ROS_DOMAIN_ID", "11"))
-workspace_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_WS", str(PROJECT_ROOT)))
-micro_ros_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_MICRO_ROS_COMMAND", "./arduino/start_megarover_agent.sh"))
+workspace_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_WS", str(MEGAROVER_ROOT)))
+micro_ros_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_MICRO_ROS_COMMAND", ""))
 zed_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_ZED_COMMAND", ""))
 bringup_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_BRINGUP_COMMAND", ""))
 ekf_params_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_EKF_PARAMS", str(PROJECT_ROOT / "configs" / "megarover-ekf.yaml")))
@@ -253,7 +272,7 @@ teleop_topic_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_TELEOP_TOPI
 rviz_config_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_RVIZ_CONFIG", ""))
 nav_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_NAV_COMMAND", ""))
 nav_params_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_NAV_PARAMS", str(COMMON_ROOT / "nav2" / "zed_pointcloud_odom_nav2_mppi_params.yaml")))
-stop_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_STOP_COMMAND", "./stop.sh"))
+stop_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_STOP_COMMAND", "./megarover_real/stop.sh"))
 esp_port_var = tk.StringVar(value=os.environ.get("MEGAROVER_ESP_PORT", "/dev/ttyUSB0"))
 delay_zed_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_ZED_DELAY_SEC", "2"))
 delay_robot_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_ROBOT_DELAY_SEC", "8"))
@@ -311,9 +330,10 @@ ttk.Checkbutton(nav_tab, text="Nav2起動時にoccupancy mapperを有効化", va
 add_button(nav_tab, "キーボード teleop 起動", start_teleop, 3)
 add_button(nav_tab, "Nav2 起動", start_nav2, 4)
 
-ttk.Label(maint_tab, text="ファーム書き込みと詳細設定。ESP32はVS-C3/SELECT E-STOP版を前提にします。").grid(row=0, column=0, sticky="w", pady=(0, 10))
+ttk.Label(maint_tab, text="ファーム書き込み、micro-ROS Agentビルド、詳細設定。ESP32はVS-C3/SELECT E-STOP版を前提にします。").grid(row=0, column=0, sticky="w", pady=(0, 10))
 add_button(maint_tab, "ESP32 ファーム書き込み", esp_upload, 1)
-add_button(maint_tab, "詳細設定", open_options, 2)
+add_button(maint_tab, "micro-ROS Agent ビルド", build_micro_ros_agent, 2)
+add_button(maint_tab, "詳細設定", open_options, 3)
 
 status = ttk.Label(main, textvariable=status_var, relief="sunken", anchor="w", padding=(6, 3))
 status.grid(row=1, column=0, sticky="ew", pady=(8, 0))

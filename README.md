@@ -103,6 +103,7 @@ GUIはシミュレーション側ヘルパーと同じ考え方で、`1. ロボ�
 - 実機固有: `micro-ROS Agent`、`ZED2i`、`robot.launch.py rover:=mega_zed`、VS-C3/ESP32ファーム書き込み、`stop.sh` を扱います。
 - Nav2共通設定: 隣の `../megarover_common/nav2/` を参照します。
 - ESP32ファーム: VS-C3コントローラと `SELECT` 緊急停止トグル版を前提にします。
+- `vcs import` 後の実配置は `~/src/megarover/{arduino,src,uros_ws,zed_ws,megarover_real,megarover_common}` の兄弟構成です。GUIの既定workspaceも `~/src/megarover` です。
 
 ```bash
 # ターミナル1: micro-ROS エージェント
