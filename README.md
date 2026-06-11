@@ -107,7 +107,10 @@ GUIはシミュレーション側ヘルパーと同じ考え方で、`1. ロボ�
 
 ```bash
 # ターミナル1: micro-ROS エージェント
-~/src/megarover/megarover_real/arduino/start_megarover_agent.sh
+cd ~/src/megarover
+source /opt/ros/humble/setup.bash
+source uros_ws/install/local_setup.bash
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyUSB0 --baudrate 921600 -v4
 
 # ターミナル2: ZED2i カメラ（先に起動する）
 source ~/src/megarover/megarover_real/install/setup.bash
