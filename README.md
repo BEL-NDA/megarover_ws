@@ -2,6 +2,8 @@
 
 Megarover Ver.3.0 ROS2 ワークスペース（実機側。ZED2i + micro-ROS 対応）
 
+このリポジトリ自体が ROS ワークスペースです。`src/` 配下に `vcs import` で展開した ROS パッケージを置き、`colcon build` の対象にします。
+
 ## 構成
 
 `megarover_common` をこのリポジトリの隣に置いて、共有設定と RViz レイアウトをそこに分離します。
@@ -85,6 +87,22 @@ sudo ln -s /opt/ros/humble/share/zed_description/meshes /opt/ros/humble/share/ze
 ## 起動手順
 
 > **順番が重要です。** ZED を先に起動しないと RViz のカメラ映像が表示されません。
+
+### 実機ヘルパーGUI
+
+実機用の起動GUIを使う場合:
+
+```bash
+cd ~/src/megarover/megarover_real
+./scripts/start-megarover-real-gui.sh
+```
+
+GUIはシミュレーション側ヘルパーと同じ考え方で、`1. ロボット`、`2. センサ`、`3. ナビゲーション`、`4. 保守` に分けています。
+
+- 共通: `ROS_DOMAIN_ID`、端末エミュレータ、ZED depth mode、Nav2 params はGUIで変更できます。
+- 実機固有: `micro-ROS Agent`、`ZED2i`、`robot.launch.py rover:=mega_zed`、VS-C3/ESP32ファーム書き込み、`stop.sh` を扱います。
+- Nav2共通設定: 隣の `../megarover_common/nav2/` を参照します。
+- ESP32ファーム: VS-C3コントローラと `SELECT` 緊急停止トグル版を前提にします。
 
 ```bash
 # ターミナル1: micro-ROS エージェント
