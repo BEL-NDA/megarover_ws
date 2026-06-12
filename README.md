@@ -298,3 +298,163 @@ mapping モードで同じファイルを指定すると既存地図に追加さ
 - ロボット MCU: ESP32 (VS-C3) / micro-ROS
 - コントローラ: Xbox Wireless Controller (BLE)
 - 深度モード: NEURAL_PLUS（デフォルト）/ NEURAL_LIGHT / NEURAL
+
+<!-- DEMO_20260612_START -->
+## 2026-06-12 real robot demo startup
+
+This section is the fixed real-robot startup procedure for the `DEMO` branch.
+
+### Repository state on the real robot PC
+
+```bash
+cd ~/src/megarover/megarover_real
+git fetch origin
+git switch DEMO
+git pull --ff-only
+```
+
+Expected branch: `DEMO`.
+
+### Required real robot services
+
+The demo needs these real-side components running:
+
+- ESP32 rover firmware connected through `/dev/ttyUSB0`
+- micro-ROS Agent on `ROS_DOMAIN_ID=11`
+- ZED camera and person tracking stack publishing `/perception/people/tracks`
+- UDP track-follow controller publishing `/rover_twist`
+
+The development-PC GUI sends only a selected `track_id` over UDP. The real robot side computes angular velocity locally from `/perception/people/tracks`.
+
+### Start micro-ROS Agent
+
+On the real robot PC:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/megarover_ws/install/local_setup.bash
+export ROS_DOMAIN_ID=11
+~/Arduino/megarover3_ros2/start_megarover_agent.sh
+```
+
+The demo setup currently depends on the known Agent workaround used during development. If the Agent exits with FastCDR or GraphManager errors, do not continue the demo run until the Agent is restarted successfully.
+
+Expected topics after the ESP32 connects:
+
+```text
+/rover_twist
+/rover_odo
+/rover_sensor
+```
+
+### Start the real helper GUI
+
+The helper GUI can be used for real-side launch/stop operations:
+
+```bash
+cd ~/src/megarover/megarover_real
+python3 scripts/start-megarover-real-gui.py
+```
+
+Use this for starting/stopping real-side stack components when operating interactively.
+
+### Start track-follow controller
+
+Start this after the ZED/person tracking stack is running:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/megarover_ws/install/local_setup.bash
+export ROS_DOMAIN_ID=11
+cd ~/src/megarover/megarover_real
+python3 scripts/track_follow_controller.py \
+  --port 50112 \
+  --tracks_topic /perception/people/tracks \
+  --cmd_vel_topic /rover_twist \
+  --kp 0.50 --ki 0.0 --kd 0.04 \
+  --max_angular_z 0.50 \
+  --finish_angle_deg 5.0 \
+  --max_target_jump_m 2.0 \
+  --max_yaw_jump_deg 45.0 \
+  --command_timeout 300.0
+```
+
+The controller listens for UDP JSON commands:
+
+```json
+{"enable": true, "track_id": 123}
+{"enable": false}
+```
+
+When enabled, it searches the latest `/perception/people/tracks` for the requested `track_id` and publishes `/rover_twist`. If the target is missing, too discontinuous, or inside the deadband, it publishes stop commands instead of handing over to another track.
+
+### Recommended terminal layout for the demo
+
+Use separate terminals on the real robot PC:
+
+```text
+Terminal 1: micro-ROS Agent
+Terminal 2: ZED/person tracking stack
+Terminal 3: track_follow_controller.py
+Terminal 4: optional diagnostics
+```
+
+Useful diagnostics:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/megarover_ws/install/local_setup.bash
+export ROS_DOMAIN_ID=11
+ros2 topic list
+ros2 topic echo /perception/people/tracks --once
+ros2 topic echo /rover_twist --once
+```
+
+### Software stop commands
+
+The physical E-stop is the primary safety mechanism.
+
+Software stop for the track-follow controller:
+
+```bash
+python3 - <<'PY2'
+import socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.sendto(b'{"enable":false}', ('127.0.0.1', 50112))
+sock.close()
+PY2
+```
+
+Stop local rover/demo processes if needed:
+
+```bash
+pkill -f 'track_follow_controller.py' || true
+pkill -f 'micro_ros_agent' || true
+```
+
+### Development PC GUI pairing
+
+After the real-side stack is running, start the GUI on the development PC:
+
+```bash
+cd ~/python/zed/CivilianCombatantDetection2
+git switch DEMO
+./run_real_control_demo.sh
+```
+
+Default GUI connection target:
+
+```text
+host: 10.37.1.190
+udp port: 50112
+ROS_DOMAIN_ID: 11
+```
+
+### Post-demo tasks
+
+After the demo, merge `DEMO` into `main` intentionally and then revisit:
+
+- VS-C3 firmware and E-stop integration
+- reproducible micro-ROS Agent GraphManager/FastCDR fix
+- controller gain tuning from logs rather than live ad-hoc adjustments
+<!-- DEMO_20260612_END -->
