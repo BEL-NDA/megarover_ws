@@ -100,6 +100,13 @@ def real_prefix():
     )
 
 
+def agent_prefix():
+    return (
+        "source /opt/ros/humble/setup.bash && "
+        "source $HOME/megarover_ws/install/local_setup.bash"
+    )
+
+
 def common_env():
     return {
         "ROS_DOMAIN_ID": ros_domain_var.get().strip() or "11",
@@ -126,7 +133,7 @@ def start_micro_ros():
         "sleep 1; "
         f"{q(script)}"
     )
-    run_in_terminal("Real micro-ROS Agent", f"{real_prefix()} && {cmd}", common_env())
+    run_in_terminal("Real micro-ROS Agent", f"{agent_prefix()} && {cmd}", common_env())
 
 
 def start_zed():
