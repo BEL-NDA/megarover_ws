@@ -90,7 +90,8 @@ def real_prefix():
     return (
         f"cd {q(ws)} && "
         "source /opt/ros/humble/setup.bash && "
-        "for setup in install/setup.bash install/local_setup.bash "
+        "for setup in $HOME/megarover_ws/install/setup.bash $HOME/megarover_ws/install/local_setup.bash "
+        "install/setup.bash install/local_setup.bash "
         "megarover_real/install/setup.bash megarover_real/install/local_setup.bash "
         "zed_ws/install/setup.bash zed_ws/install/local_setup.bash "
         "uros_ws/install/setup.bash uros_ws/install/local_setup.bash; do "
@@ -118,14 +119,13 @@ def zed_args():
 
 
 def start_micro_ros():
-    cmd = micro_ros_command_var.get().strip()
-    if not cmd:
-        port = esp_port_var.get().strip() or "/dev/ttyUSB0"
-        cmd = (
-            f"kill $(lsof -t {q(port)} 2>/dev/null) 2>/dev/null || true; "
-            "sleep 1; "
-            f"ros2 run micro_ros_agent micro_ros_agent serial --dev {q(port)} --baudrate 921600 -v4"
-        )
+    port = esp_port_var.get().strip() or "/dev/ttyUSB0"
+    script = Path.home() / "Arduino" / "megarover3_ros2" / "start_megarover_agent.sh"
+    cmd = (
+        f"kill $(lsof -t {q(port)} 2>/dev/null) 2>/dev/null || true; "
+        "sleep 1; "
+        f"{q(script)}"
+    )
     run_in_terminal("Real micro-ROS Agent", f"{real_prefix()} && {cmd}", common_env())
 
 
