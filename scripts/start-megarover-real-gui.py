@@ -155,6 +155,37 @@ def start_full_stack():
     run_in_terminal("Real Megarover Bringup", f"sleep {q(delay_robot)} && {real_prefix()} && {robot_cmd}", common_env())
 
 
+def track_follow_controller_command():
+    script = PROJECT_ROOT / "scripts" / "track_follow_controller.py"
+    return (
+        f"python3 {q(script)} "
+        "--port 50112 "
+        "--tracks_topic /perception/people/tracks "
+        "--cmd_vel_topic /rover_twist "
+        "--kp 0.50 --ki 0.0 --kd 0.04 "
+        "--max_angular_z 0.50 "
+        "--finish_angle_deg 5.0 "
+        "--max_target_jump_m 2.0 "
+        "--max_yaw_jump_deg 45.0 "
+        "--command_timeout 300.0"
+    )
+
+
+def start_track_follow_controller(delay="0"):
+    cmd = track_follow_controller_command()
+    run_in_terminal(
+        "Real Track Follow Controller",
+        f"sleep {q(delay)} && {real_prefix()} && {cmd}",
+        common_env(),
+    )
+
+
+def start_full_stack_demo():
+    start_full_stack()
+    delay_controller = delay_controller_var.get().strip() or "14"
+    start_track_follow_controller(delay_controller)
+
+
 def start_teleop():
     topic = teleop_topic_var.get().strip() or "/rover_twist"
     cmd = f"ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r /cmd_vel:={q(topic)}"
@@ -242,6 +273,7 @@ def open_options():
         ("ESP port", esp_port_var),
         ("full-stack ZED delay sec", delay_zed_var),
         ("full-stack robot delay sec", delay_robot_var),
+        ("full-stack demo controller delay sec", delay_controller_var),
     ]
 
     for row, (label, var) in enumerate(fields):
@@ -276,6 +308,7 @@ stop_command_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_STOP_COMMAN
 esp_port_var = tk.StringVar(value=os.environ.get("MEGAROVER_ESP_PORT", "/dev/ttyUSB0"))
 delay_zed_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_ZED_DELAY_SEC", "2"))
 delay_robot_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_ROBOT_DELAY_SEC", "8"))
+delay_controller_var = tk.StringVar(value=os.environ.get("MEGAROVER_REAL_CONTROLLER_DELAY_SEC", "14"))
 
 zed_depth_var = tk.StringVar(value=os.environ.get("MEGAROVER_ZED_DEPTH_MODE", "NEURAL_LIGHT"))
 zed_slam_mode_var = tk.StringVar(value=os.environ.get("MEGAROVER_ZED_SLAM_MODE", "off"))
@@ -308,7 +341,8 @@ add_button(robot_tab, "micro-ROS Agent 起動", start_micro_ros, 1)
 add_button(robot_tab, "ZED2i 起動", start_zed, 2)
 add_button(robot_tab, "Megarover + EKF + RViz 起動", start_bringup, 3)
 add_button(robot_tab, "基本スタック一括起動", start_full_stack, 4)
-add_button(robot_tab, "全ノード停止", stop_all, 5)
+add_button(robot_tab, "フルスタックデモ起動", start_full_stack_demo, 5)
+add_button(robot_tab, "全ノード停止", stop_all, 6)
 
 ttk.Label(sensor_tab, text="ZED2iのdepth/SLAM設定。通常はNEURAL_LIGHT、SLAMはoffから開始します。").grid(row=0, column=0, sticky="w", pady=(0, 10))
 sensor_box = ttk.LabelFrame(sensor_tab, text="ZED2i", padding=10)
